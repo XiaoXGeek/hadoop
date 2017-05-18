@@ -33,7 +33,7 @@ public class MultiMR extends Configured implements Tool {
 		// 加入控制容器
 		ControlledJob ctrljobA = new ControlledJob(Aconf);
 		ctrljobA.setJob(Ajob);
-
+		//jairu
 		// 第二个作业的配置
 		Job Bjob = Job.getInstance(Bconf);
 		Bjob.setMapperClass(Mapper1.class);
