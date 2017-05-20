@@ -61,10 +61,11 @@ public class MultiMR extends Configured implements Tool {
 		// return 0;
 
 		Configuration conf = new Configuration();
-		String inputPath = "/MultiMR/input/duplicate.txt";
-		String maxOutputPath = "/MultiMR/output/max/";
-		String countOutputPath = "/MultiMR/output/count/";
-		String avgOutputPath = "/MultiMR/output/avg/";
+		String bathPath = "hdfs://hadoop01:9000";
+		String inputPath = bathPath + "/MultiMR/input/duplicate.txt";
+		String maxOutputPath = bathPath + "/MultiMR/output/max/";
+		String countOutputPath = bathPath + "/MultiMR/output/count/";
+		String avgOutputPath = bathPath + "/MultiMR/output/avg/";
 
 		// 删除输出目录(可选,省得多次运行时,总是报OUTPUT目录已存在)
 		// HDFSUtil.deleteFile(conf, maxOutputPath);
@@ -74,7 +75,7 @@ public class MultiMR extends Configured implements Tool {
 		Job job1 = Job.getInstance(conf, "Sum");
 		job1.setJarByClass(MultiMR.class);
 		job1.setMapperClass(SumMapper.class);
-		job1.setCombinerClass(SumReduce.class);
+		// job1.setCombinerClass(SumReduce.class);
 		job1.setReducerClass(SumReduce.class);
 		job1.setOutputKeyClass(Text.class);
 		job1.setOutputValueClass(IntWritable.class);
@@ -84,7 +85,7 @@ public class MultiMR extends Configured implements Tool {
 		Job job2 = Job.getInstance(conf, "Count");
 		job2.setJarByClass(MultiMR.class);
 		job2.setMapperClass(CountMapper.class);
-		job2.setCombinerClass(CountReduce.class);
+		// job2.setCombinerClass(CountReduce.class);
 		job2.setReducerClass(CountReduce.class);
 		job2.setOutputKeyClass(Text.class);
 		job2.setOutputValueClass(IntWritable.class);
@@ -95,10 +96,14 @@ public class MultiMR extends Configured implements Tool {
 		job3.setJarByClass(MultiMR.class);
 		job3.setMapperClass(AvgMapper.class);
 		job3.setReducerClass(AvgReduce.class);
-		job3.setMapOutputKeyClass(IntWritable.class);
-		job3.setMapOutputValueClass(IntWritable.class);
+		
 		job3.setOutputKeyClass(Text.class);
 		job3.setOutputValueClass(DoubleWritable.class);
+		
+		
+		job3.setMapOutputKeyClass(Text.class);
+		job3.setMapOutputValueClass(IntWritable.class);
+		
 
 		// 将job1及job2的输出为做job3的输入
 		FileInputFormat.addInputPath(job3, new Path(maxOutputPath));
@@ -106,7 +111,7 @@ public class MultiMR extends Configured implements Tool {
 		FileOutputFormat.setOutputPath(job3, new Path(avgOutputPath));
 
 		// 提交job1及job2,并等待完成
-		int result  = 0;
+		int result = 0;
 		if (job1.waitForCompletion(true) && job2.waitForCompletion(true)) {
 			result = job3.waitForCompletion(true) ? 0 : 1;
 		}
@@ -130,11 +135,11 @@ public class MultiMR extends Configured implements Tool {
 		}
 	}
 
-	static class SumReduce extends Reducer<LongWritable, IntWritable, Text, IntWritable> {
+	static class SumReduce extends Reducer<Text, IntWritable, Text, IntWritable> {
 		public int sum = 0;
 
 		@Override
-		protected void reduce(LongWritable key, Iterable<IntWritable> values, Context context)
+		protected void reduce(Text key, Iterable<IntWritable> values, Context context)
 				throws IOException, InterruptedException {
 			// TODO Auto-generated method stub
 			for (IntWritable v : values) {
@@ -145,12 +150,12 @@ public class MultiMR extends Configured implements Tool {
 	}
 
 	// 计数
-	static class CountMapper extends Mapper<LongWritable, IntWritable, Text, IntWritable> {
+	static class CountMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
 
 		public int count = 0;
 
 		@Override
-		protected void map(LongWritable key, IntWritable value, Context context)
+		protected void map(LongWritable key, Text value, Context context)
 				throws IOException, InterruptedException {
 			// TODO Auto-generated method stub
 			count++;
@@ -163,12 +168,12 @@ public class MultiMR extends Configured implements Tool {
 		}
 	}
 
-	static class CountReduce extends Reducer<LongWritable, IntWritable, Text, IntWritable> {
+	static class CountReduce extends Reducer<Text, IntWritable, Text, IntWritable> {
 
 		public int count = 0;
 
 		@Override
-		protected void reduce(LongWritable key, Iterable<IntWritable> values, Context context)
+		protected void reduce(Text key, Iterable<IntWritable> values, Context context)
 				throws IOException, InterruptedException {
 			// TODO Auto-generated method stub
 			for (IntWritable v : values) {
@@ -179,7 +184,7 @@ public class MultiMR extends Configured implements Tool {
 	}
 
 	// 平均数
-	static class AvgMapper extends Mapper<LongWritable, Text, IntWritable, IntWritable> {
+	static class AvgMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
 		public int sum = 0;
 		public int count = 0;
 
@@ -195,29 +200,29 @@ public class MultiMR extends Configured implements Tool {
 		}
 
 		@Override
-		protected void cleanup(Mapper<LongWritable, Text, IntWritable, IntWritable>.Context context)
+		protected void cleanup(Mapper<LongWritable, Text, Text, IntWritable>.Context context)
 				throws IOException, InterruptedException {
 			// TODO Auto-generated method stub
-			context.write(new IntWritable(sum), new IntWritable(count));
+			context.write(new Text(sum+""), new IntWritable(count));
 		}
 	}
 
-	static class AvgReduce extends Reducer<IntWritable, IntWritable, Text, DoubleWritable> {
+	static class AvgReduce extends Reducer<Text, IntWritable, Text, DoubleWritable> {
 		public int sum = 0;
 		public int count = 0;
 
 		@Override
-		protected void reduce(IntWritable key, Iterable<IntWritable> values, Context context)
+		protected void reduce(Text key, Iterable<IntWritable> values, Context context)
 				throws IOException, InterruptedException {
 			// TODO Auto-generated method stub
-			sum += key.get();
+			sum += Integer.parseInt(key.toString());
 			for (IntWritable v : values) {
 				count += v.get();
 			}
 		}
 
 		@Override
-		protected void cleanup(Reducer<IntWritable, IntWritable, Text, DoubleWritable>.Context context)
+		protected void cleanup(Reducer<Text, IntWritable, Text, DoubleWritable>.Context context)
 				throws IOException, InterruptedException {
 			// TODO Auto-generated method stub
 			context.write(new Text("AVG"), new DoubleWritable(new Double(sum) / count));
